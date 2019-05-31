@@ -37,6 +37,8 @@ endif()
 
 find_package(Eigen3 3.1.0 REQUIRED)
 
+find_package(FisheyeDev REQUIRED)
+
 set (DYNAMIC_RECONFIGURE_PATH ros/config/dynamic_reconfigure.cfg)
 execute_process(COMMAND chmod a+x ${DYNAMIC_RECONFIGURE_PATH}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
@@ -111,6 +113,7 @@ add_executable(${PROJECT_NAME}_fisheye
 
 target_link_libraries(${PROJECT_NAME}_fisheye
   ${LIBS_ROS}
+  ${FisheyeDev_LIBRARIES}
 )
 
 add_executable (${PROJECT_NAME}_mono
