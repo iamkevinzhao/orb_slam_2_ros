@@ -104,6 +104,15 @@ target_link_libraries(${PROJECT_NAME}
 ${LIBS_ORBSLAM}
 )
 
+add_executable(${PROJECT_NAME}_fisheye
+  ros/src/fisheye_node.cpp
+  ros/include/fisheye_node.h
+)
+
+target_link_libraries(${PROJECT_NAME}_fisheye
+  ${LIBS_ROS}
+)
+
 add_executable (${PROJECT_NAME}_mono
 ros/src/MonoNode.cc
 ros/src/Node.cc
@@ -134,7 +143,12 @@ target_link_libraries(${PROJECT_NAME}_rgbd
 ${LIBS_ROS}
 )
 
-install(TARGETS ${PROJECT_NAME}_mono ${PROJECT_NAME}_stereo ${PROJECT_NAME}_rgbd
+install(
+  TARGETS
+    ${PROJECT_NAME}_mono
+    ${PROJECT_NAME}_stereo
+    ${PROJECT_NAME}_rgbd
+    ${PROJECT_NAME}_fisheye
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
