@@ -5,7 +5,14 @@
 #include <fisheye_common/undistort.h>
 #include <vector>
 
- #define ORB_EXPERIMENT_0601
+#define ORB_EXPERIMENT_0601
+
+#ifdef ORB_EXPERIMENT_0601
+namespace cv {
+  class DescriptorMatcher;
+  class ORB;
+}
+#endif
 
 class FisheyeNode {
  public:
@@ -26,11 +33,16 @@ class FisheyeNode {
       cv::Mat& all_desc,
       cv::Mat& good_desc);
   void ORBExperiment0601();
+  void ORBExperiment0602();
+  cv::Ptr<cv::DescriptorMatcher> matcher_;
+  cv::Ptr<cv::ORB> detector_;
+  const int kThres = 30;
+
   std::vector<cv::Mat> mono_frames_;
+  std::vector<std::pair<cv::Mat, cv::Mat>> stereo_frames_;
+
 //  std::vector<std::vector<cv::KeyPoint>> mono_kps_;
 //  std::vector<cv::Mat> mono_desc_;
-
-  std::vector<std::pair<cv::Mat, cv::Mat>> stereo_frames_;
 #endif
 };
 
