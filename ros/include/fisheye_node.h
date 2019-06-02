@@ -14,24 +14,20 @@ namespace cv {
 }
 #endif
 
+void PutText(cv::Mat& image, const std::vector<std::string>& texts);
+
 class FisheyeNode {
  public:
   void RunFromDataset();
   std::string vocabulary_path;
   std::string settings_path;
   fisheye::FisheyeUndistort undistort;
+
+#ifdef ORB_EXPERIMENT_0601
+  void RunORBExperiment0601();
+#endif
  private:
 #ifdef ORB_EXPERIMENT_0601
-  void MatchKeypoints(
-      // train
-      const cv::Mat& train,
-      cv::Mat& train_desc,
-      // query
-      const cv::Mat& query,
-      std::vector<cv::KeyPoint>& all_kps,
-      std::vector<cv::KeyPoint>& good_kps,
-      cv::Mat& all_desc,
-      cv::Mat& good_desc);
   void ORBExperiment0601();
   void ORBExperiment0602();
   cv::Ptr<cv::DescriptorMatcher> matcher_;

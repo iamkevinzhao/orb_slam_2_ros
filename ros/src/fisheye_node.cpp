@@ -5,6 +5,14 @@
 #include <opencv2/features2d.hpp>
 #include <opencv2/opencv.hpp>
 
+void PutText(cv::Mat& image, const std::vector<std::string>& texts) {
+  int vpos = 0;
+  for (const std::string& text : texts) {
+    vpos += 17;
+    cv::putText(image, text, {4, vpos}, 1, 1.3, {0, 0, 0});
+  }
+}
+
 void FisheyeNode::RunFromDataset() {
   ORB_SLAM2::System slam(
       vocabulary_path, settings_path, ORB_SLAM2::System::MONOCULAR);
@@ -65,11 +73,54 @@ int main() {
   if (!node.undistort.LoadCalibResult("calib_result.txt")) {
     return -1;
   }
-  node.RunFromDataset();
+  // node.RunFromDataset();
+  node.RunORBExperiment0601();
 }
 
 
 #ifdef ORB_EXPERIMENT_0601
+void FisheyeNode::RunORBExperiment0601() {
+  int id = 0;
+  while(true) {
+    ++id;
+    cv::Mat mono;
+    mono =
+        cv::imread(
+            ("./images/mono_" + std::to_string(id) + ".jpg").c_str(),
+            CV_LOAD_IMAGE_COLOR);
+    mono = undistort.Undistort(mono);
+
+    cv::Mat stereo;
+    stereo =
+        cv::imread(
+            ("./images/stereo_" + std::to_string(id) + ".jpg").c_str(),
+            CV_LOAD_IMAGE_COLOR);
+    std::pair<cv::Mat, cv::Mat> stereo_pair =
+        undistort.Undistort(fisheye::Split(stereo));
+//    cv::imshow("left", stereo_pair.first);
+//    cv::imshow("right", stereo_pair.second);
+
+    if (!matcher_) {
+      matcher_ = cv::DescriptorMatcher::create("BruteForce-Hamming");
+    }
+    if (!detector_) {
+      detector_ = cv::ORB::create();
+    }
+    mono_frames_.push_back(mono.clone());
+    stereo_frames_.push_back(stereo_pair);
+    ORBExperiment0601();
+    ORBExperiment0602();
+    if (mono_frames_.size() >= 3) {
+      mono_frames_.erase(mono_frames_.begin());
+    }
+    stereo_frames_.erase(stereo_frames_.begin());
+
+    if (cv::waitKey(1) >= 0) {
+      break;
+    }
+  }
+}
+
 void FisheyeNode::ORBExperiment0601() {
   if (mono_frames_.size() < 3) {
     return;
@@ -91,7 +142,7 @@ void FisheyeNode::ORBExperiment0601() {
       kp3in2.push_back(kp3[match.queryIdx]);
     }
   }
-  cv::Mat dp1in2;
+  Mat dp1in2;
   matcher_->match(dp1, dp2, matches);
   for (DMatch& match : matches) {
     if (match.distance < kThres) {
@@ -109,10 +160,15 @@ void FisheyeNode::ORBExperiment0601() {
       kp3in1.push_back(kp3[match.queryIdx]);
     }
   }
-  cv::Mat image;
+  Mat image;
   drawKeypoints(f3, kp3, image, {0, 255, 0});
   drawKeypoints(image, kp3in2, image, {255, 0, 0});
   drawKeypoints(image, kp3in1, image, {0, 0, 255});
+  PutText(
+      image,
+      {"ORB in green: " + to_string(kp3.size()),
+       "ORB in blue: " + to_string(kp3in2.size()),
+       "ORB in red: " + to_string(kp3in1.size())});
   imshow("keypoints", image);
 }
 
@@ -126,7 +182,7 @@ void FisheyeNode::ORBExperiment0602() {
   using namespace std;
   using namespace cv;
   constexpr float ratio = 0.21;
-   constexpr int kThres = 40;
+  constexpr int kThres = 40;
 
   Mat& mono = *mono_frames_.rbegin();
   Mat& stereo_left = stereo_frames_.rbegin()->first;
@@ -188,212 +244,21 @@ void FisheyeNode::ORBExperiment0602() {
   drawKeypoints(sor_roi, sor_cokp, sor_roi, Scalar{255, 0, 0});
   drawKeypoints(sol_roi, sol_3kp, sol_roi, Scalar{0, 0, 255});
   drawKeypoints(sor_roi, sor_3kp, sor_roi, Scalar{0, 0, 255});
+  PutText(mo_roi, {"ORB in green: " + to_string(mo_kp.size())});
+  PutText(
+      sol_roi,
+      {"ORB in green: " + to_string(sol_kp.size()),
+       "ORB in blue: " + to_string(sol_cokp.size()),
+       "ORB in red: " + to_string(sol_3kp.size())});
+  PutText(
+      sor_roi,
+      {"ORB in green: " + to_string(sor_kp.size()),
+       "ORB in blue: " + to_string(sor_cokp.size()),
+       "ORB in red: " + to_string(sor_3kp.size())});
   cv::Mat image = mo_roi.clone();
   vconcat(image, sol_roi, image);
   vconcat(image, sor_roi, image);
   imshow("mono", image);
 //  imshow("mono", mo_roi);
-}
-#endif
-
-//////////////////////////////////////////////////////////////
-#if 0
-void FisheyeNode::MatchKeypoints(
-    // train
-    const cv::Mat& train,
-    cv::Mat& train_desc,
-    // query
-    const cv::Mat& query,
-    std::vector<cv::KeyPoint>& all_kps,
-    std::vector<cv::KeyPoint>& good_kps,
-    cv::Mat& all_desc,
-    cv::Mat& good_desc) {
-  static cv::Ptr<cv::DescriptorMatcher> matcher =
-      cv::DescriptorMatcher::create("BruteForce-Hamming");
-  static cv::Ptr<cv::ORB> detector = cv::ORB::create();
-
-  std::vector<cv::KeyPoint> kp_tmp;
-  if (train_desc.empty()) {
-    detector->detectAndCompute(
-        train, cv::noArray(), kp_tmp, train_desc);
-//    good_kps = all_kps;
-//    good_desc = train_desc;
-//    return;
-  }
-
-  if (all_desc.empty()) {
-    detector->detectAndCompute(query, cv::noArray(), all_kps, all_desc);
-  }
-
-  std::vector<cv::DMatch> matches, good_matches;
-  // std::cout << all_desc.size << " " << train_desc.size << " " << matches.size() << std::endl;
-  matcher->match(all_desc, train_desc, matches);
-  for (cv::DMatch& match : matches) {
-    if (match.distance <= 30) {
-      good_matches.push_back(match);
-    }
-  }
-  for (cv::DMatch& match : good_matches) {
-    int idx = match.queryIdx;
-    good_kps.push_back(all_kps[idx]);
-    // std::cout << good_desc.size << " " << all_desc.row(idx).size << std::endl;
-    if (good_desc.empty()) {
-      good_desc = all_desc.row(idx).clone();
-    }
-    cv::vconcat(good_desc, all_desc.row(idx), good_desc);
-  }
-  return;
-}
-
-void FisheyeNode::ORBExperiment0601() {
-  if (mono_frames_.size() < 3) {
-    mono_desc_.assign(3, cv::Mat());
-    mono_kps_.assign(3, std::vector<cv::KeyPoint>());
-    return;
-  }
-  mono_desc_.push_back(cv::Mat());
-  mono_kps_.push_back(std::vector<cv::KeyPoint>());
-  if (mono_frames_.size() > 3) {
-    mono_frames_.erase(mono_frames_.begin());
-    mono_desc_.erase(mono_desc_.begin());
-    mono_kps_.erase(mono_kps_.begin());
-  }
-//  cv::Mat& frame_1, frame_2, frame_3;
-//  cv::Mat& desc_1, desc_2, desc_3;
-//  std::vector<cv::KeyPoint>& kp_1, kp_2, kp_3;
-  cv::Mat& frame_1 = mono_frames_[0];
-  cv::Mat& frame_2 = mono_frames_[1];
-  cv::Mat& frame_3 = mono_frames_[2];
-  cv::Mat& desc_1 = mono_desc_[0];
-  cv::Mat& desc_2 = mono_desc_[1];
-  cv::Mat& desc_3 = mono_desc_[2];
-  std::vector<cv::KeyPoint>& kp_1 = mono_kps_[0];
-  std::vector<cv::KeyPoint>& kp_2 = mono_kps_[1];
-  std::vector<cv::KeyPoint>& kp_3 = mono_kps_[2];
-
-  std::vector<cv::KeyPoint> kp_all, kp_31;
-  cv::Mat all_desc, desc_31;
-  MatchKeypoints(frame_1, desc_1, frame_3, kp_all, kp_31, all_desc, desc_31);
-  MatchKeypoints(frame_2, desc_2, frame_3, kp_all, kp_3, all_desc, desc_3);
-  cv::Mat image = frame_3.clone();
-  cv::drawKeypoints(image, kp_all, image, {255, 0, 0});
-  cv::drawKeypoints(image, kp_3, image, {0, 0, 255});
-  // cv::drawKeypoints(image, kp_31, image, {0, 255, 0});
-  cv::imshow("keypoints", image);
-}
-
-//void FisheyeNode::ORBExperiment0601() {
-//  if (mono_frames_.size() < 3) {
-//    return;
-//  }
-//  static cv::Ptr<cv::DescriptorMatcher> matcher =
-//      cv::DescriptorMatcher::create("BruteForce-Hamming");
-//  static cv::Ptr<cv::ORB> detector = cv::ORB::create();
-//  cv::Mat& mono_1 = *mono_frames_.begin();
-//  cv::Mat& mono_2 = *std::next(mono_frames_.begin());
-//  cv::Mat& mono_3 = *std::next(mono_frames_.begin(), 2);
-
-//  std::vector<cv::KeyPoint> kps_1, kps_2, kps_3;
-//  cv::Mat desc_1, desc_2, desc_3;
-//  if (mono_kps_.empty()) {
-//    detector->detectAndCompute(mono_1, cv::noArray(), kps_1, desc_1);
-//    detector->detectAndCompute(mono_2, cv::noArray(), kps_2, desc_2);
-//    mono_kps_.push_back(kps_1);
-//    mono_kps_.push_back(kps_2);
-//    mono_desc_.push_back(desc_1);
-//    mono_desc_.push_back(desc_2);
-//  } else {
-//    kps_1 = mono_kps_[0];
-//    kps_2 = mono_kps_[1];
-//    desc_1 = mono_desc_[0];
-//    desc_2 = mono_desc_[1];
-//  }
-//  detector->detectAndCompute(mono_3, cv::noArray(), kps_3, desc_3);
-//  mono_kps_.push_back(kps_3);
-//  mono_desc_.push_back(desc_3);
-
-//  std::vector<cv::DMatch>
-//      matches_31, matches_32, good_matches_31, good_matches_32;
-//  matcher->match(desc_3, desc_1, matches_31);
-//  matcher->match(desc_3, desc_2, matches_32);
-//  constexpr int thres = 30;
-//  for (cv::DMatch& match : matches_31) {
-//    if (match.distance <= thres) {
-//      good_matches_31.push_back(match);
-//    }
-//  }
-//  for (cv::DMatch& match : matches_32) {
-//    if (match.distance <= thres) {
-//      good_matches_32.push_back(match);
-//    }
-//  }
-//}
-#endif
-
-///////////////////////////////////////////////////////////////
-#if 0
-void FisheyeNode::ORBExperiment0601() {
-  if (mono_frames_.size() < 2 /*|| stereo_frames_.size() < 3*/) {
-    return;
-  }
-//  std::pair<cv::Mat, cv::Mat> stereo = std::move(*stereo_frames_.rbegin());
-
-  cv::Ptr<cv::ORB> detector = cv::ORB::create();
-
-  cv::Mat mono_1 = std::move(*mono_frames_.begin());
-  std::vector<cv::KeyPoint> keypoints_1;
-  cv::Mat descriptors_1;
-  detector->detectAndCompute(mono_1, cv::noArray(), keypoints_1, descriptors_1);
-
-  cv::Mat mono_2 = std::prev(mono_frames_.end())->clone();
-  std::vector<cv::KeyPoint> keypoints_2;
-  cv::Mat descriptors_2;
-  detector->detectAndCompute(mono_2, cv::noArray(), keypoints_2, descriptors_2);
-
-  std::vector<cv::DMatch> matches;
-  cv::Ptr<cv::DescriptorMatcher> matcher =
-      cv::DescriptorMatcher::create("BruteForce-Hamming");
-  matcher->match(descriptors_1, descriptors_2, matches);
-
-//  cv::FlannBasedMatcher matcher;
-//  std::vector<cv::DMatch> matches;
-//  matcher.match(descriptors_1, descriptors_2, matches);
-
-  double max_dist = 0, min_dist = 100;
-  for (int i = 0; i < descriptors_1.rows; ++i) {
-    double dist = matches[i].distance;
-    if (dist < min_dist) min_dist = dist;
-    if (dist > max_dist) max_dist = dist;
-  }
-  std::vector<cv::DMatch> good_matches;
-
-  for (int i = 0; i < descriptors_1.rows; ++i) {
-    // std::cout << matches[i].distance << " " << matches[i].imgIdx << std::endl;
-    if (matches[i].distance <= 30) {
-      good_matches.push_back(matches[i]);
-    }
-  }
-
-  std::vector<cv::KeyPoint> good_keypoints;
-  for (int i = 0; i < good_matches.size(); ++i) {
-    good_keypoints.push_back(keypoints_1[good_matches[i].queryIdx]);
-  }
-
-  cv::drawKeypoints(mono_1, keypoints_1, mono_1, cv::Scalar{255, 0, 0});
-  cv::drawKeypoints(mono_1, good_keypoints, mono_1, cv::Scalar{0, 0, 255});
-
-  cv::imshow("keypoints", mono_1);
-
-  // std::cout << keypoints_1.size() << " " << keypoints_2.size() << " " <<  good_matches.size() << std::endl;
-  // std::cout << matches[0].queryIdx << " " << matches[0].trainIdx << std::endl;
-  // std::cout << keypoints_1[matches[0].queryIdx].pt << " " << keypoints_2[matches[0].trainIdx].pt << std::endl;
-
-  // std::cout << descriptors_1.size << std::endl;
-
-  mono_frames_.erase(mono_frames_.begin());
-//  mono_frames_.clear();
-  stereo_frames_.clear();
-//  mono_frames_.erase(mono_frames_.begin());
-//  stereo_frames_.erase(stereo_frames_.begin());
 }
 #endif
