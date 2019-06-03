@@ -4,8 +4,10 @@
 #include <fisheye_common/fisheye_common.h>
 #include <opencv2/features2d.hpp>
 #include <opencv2/opencv.hpp>
-#include <opencv2/plot.hpp>
+
+#ifdef QT5CHARTS_FOUND
 #include <QtCharts/QtCharts>
+#endif
 
 void PutText(cv::Mat& image, const std::vector<std::string>& texts) {
   int vpos = 0;
@@ -207,6 +209,7 @@ void FisheyeNode::ORBExperiment0601() {
   stream.push_back(std::make_tuple(kp3.size(), kp3in2.size(), kp3in1.size()));
   stream.erase(stream.begin());
 
+#ifdef QT5CHARTS_FOUND
   static QChart *chart = new QChart();
   static QChartView *chartView = new QChartView(chart);
   chartView->show();
@@ -216,7 +219,10 @@ void FisheyeNode::ORBExperiment0601() {
   static QValueAxis *axis_y = new QValueAxis;
   axis_y->setMin(0);
   axis_y->setMax(500);
-  axis_y->setTickCount(20);
+  axis_y->setLabelFormat("%d");
+  // axis_y->setTickCount(20);
+//  chartView->setSize(500, 500);
+  chartView->setWindowTitle("ORB Feature Statistics (Mono)");
   if (chart->axes().empty()) {
     chart->addAxis(axis_y, Qt::AlignLeft);
   }
@@ -244,7 +250,7 @@ void FisheyeNode::ORBExperiment0601() {
     chart->addSeries(blue_series);
     chart->addSeries(red_series);
   }
-
+#endif
 
   imshow("keypoints", image);
 }

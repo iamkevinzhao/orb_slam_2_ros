@@ -41,10 +41,7 @@ find_package(FisheyeDev REQUIRED)
 
 add_compile_options(-fPIC)
 
-# include_directories("/home/kevin/5.9.1/gcc_64/include")
-#find_package(Qt5Core REQUIRED HINTS "/home/kevin/5.9.1/gcc_64/lib/cmake")
-find_package(Qt5Charts REQUIRED HINTS "/home/kevin/5.9.1/gcc_64/lib/cmake")
-#include_directories(${Qt5Charts_INCLUDE_DIRS})
+find_package(Qt5Charts)
 
 set (DYNAMIC_RECONFIGURE_PATH ros/config/dynamic_reconfigure.cfg)
 execute_process(COMMAND chmod a+x ${DYNAMIC_RECONFIGURE_PATH}
@@ -118,11 +115,17 @@ add_executable(${PROJECT_NAME}_fisheye
   ros/include/fisheye_node.h
 )
 
+if (${Qt5Charts_FOUND})
+  add_definitions(-DQT5CHARTS_FOUND)
+  set(FISHEYE_NODE_LIBS
+    Qt5::Charts
+  )
+endif()
+
 target_link_libraries(${PROJECT_NAME}_fisheye
   ${LIBS_ROS}
   ${FisheyeDev_LIBRARIES}
-#  Qt5::Core
-  Qt5::Charts
+  ${FISHEYE_NODE_LIBS}
 )
 
 add_executable (${PROJECT_NAME}_mono
