@@ -204,8 +204,10 @@ void FisheyeNode::ORBExperiment0601() {
       {"ORB in green: " + to_string(kp3.size()),
        "ORB in blue: " + to_string(kp3in2.size()),
        "ORB in red: " + to_string(kp3in1.size())});
+  imshow("keypoints", image);
+
   static std::vector<std::tuple<int, int, int>> stream(
-      500, std::make_tuple(0, 0, 0));
+      kSteamBufSize, std::make_tuple(0, 0, 0));
   stream.push_back(std::make_tuple(kp3.size(), kp3in2.size(), kp3in1.size()));
   stream.erase(stream.begin());
 
@@ -224,7 +226,7 @@ void FisheyeNode::ORBExperiment0601() {
 //  chartView->setSize(500, 500);
   chartView->setWindowTitle("ORB Feature Statistics (Mono)");
   if (chart->axes().empty()) {
-    chart->addAxis(axis_y, Qt::AlignLeft);
+    chart->addAxis(axis_y, Qt::AlignRight);
   }
   if (green_series->attachedAxes().empty()) {
     green_series->attachAxis(axis_y);
@@ -251,8 +253,6 @@ void FisheyeNode::ORBExperiment0601() {
     chart->addSeries(red_series);
   }
 #endif
-
-  imshow("keypoints", image);
 }
 
 void FisheyeNode::ORBExperiment0602() {
@@ -341,7 +341,43 @@ void FisheyeNode::ORBExperiment0602() {
   cv::Mat image = mo_roi.clone();
   vconcat(image, sol_roi, image);
   vconcat(image, sor_roi, image);
+
   imshow("mono", image);
-//  imshow("mono", mo_roi);
+
+  static std::vector<std::tuple<int>> stream(
+      kSteamBufSize, std::make_tuple(0));
+  stream.push_back(std::make_tuple(sor_3kp.size()));
+  stream.erase(stream.begin());
+
+#ifdef QT5CHARTS_FOUND
+  static QChart *chart = new QChart();
+  static QChartView *chartView = new QChartView(chart);
+  chartView->show();
+  static QLineSeries *red_series = new QLineSeries();
+  static QValueAxis *axis_y = new QValueAxis;
+  axis_y->setMin(0);
+  axis_y->setMax(30);
+  axis_y->setLabelFormat("%d");
+//  axis_y->setTickCount(28);
+//  chartView->setSize(500, 500);
+  chartView->setWindowTitle("ORB Feature Statistics (Stereo)");
+  if (chart->axes().empty()) {
+    chart->addAxis(axis_y, Qt::AlignRight);
+  }
+  if (red_series->attachedAxes().empty()) {
+    red_series->attachAxis(axis_y);
+  }
+  red_series->setColor(Qt::red);
+
+  red_series->clear();
+  int i = 0;
+  for (auto& tuple : stream) {
+    ++i;
+    red_series->append(i, get<0>(tuple));
+  }
+  if (chart->series().empty()) {
+    chart->addSeries(red_series);
+  }
+#endif
 }
 #endif
