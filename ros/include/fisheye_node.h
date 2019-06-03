@@ -19,6 +19,7 @@ void PutText(cv::Mat& image, const std::vector<std::string>& texts);
 class FisheyeNode {
  public:
   void RunFromDataset();
+  void RunInRealTime();
   std::string vocabulary_path;
   std::string settings_path;
   fisheye::FisheyeUndistort undistort;
@@ -26,6 +27,7 @@ class FisheyeNode {
 #ifdef ORB_EXPERIMENT_0601
   void RunORBExperiment0601();
 #endif
+
  private:
 #ifdef ORB_EXPERIMENT_0601
   void ORBExperiment0601();

@@ -4,6 +4,8 @@
 #include <fisheye_common/fisheye_common.h>
 #include <opencv2/features2d.hpp>
 #include <opencv2/opencv.hpp>
+#include <opencv2/plot.hpp>
+#include <QtCharts/QtCharts>
 
 void PutText(cv::Mat& image, const std::vector<std::string>& texts) {
   int vpos = 0;
@@ -11,6 +13,52 @@ void PutText(cv::Mat& image, const std::vector<std::string>& texts) {
     vpos += 17;
     cv::putText(image, text, {4, vpos}, 1, 1.3, {0, 0, 0});
   }
+}
+
+void FisheyeNode::RunInRealTime() {
+  ORB_SLAM2::System slam(
+      vocabulary_path, settings_path, ORB_SLAM2::System::MONOCULAR);
+  cv::VideoCapture cap(1);
+  cap.set(CV_CAP_PROP_FRAME_WIDTH, 640);
+  cap.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
+//  cap.set(CV_CAP_PROP_EXPOSURE, -7);
+
+//  stereo.set(CV_CAP_PROP_FRAME_WIDTH, 1280);
+//  stereo.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
+
+  int id = 0;
+  while(true) {
+    ++id;
+    cv::Mat mono;
+    cap >> mono;
+    if (mono.empty()) {
+      continue;
+    }
+//    cv::imwrite(("./images/mono_" + std::to_string(id) + ".jpg").c_str(), mono);
+    mono = undistort.Undistort(mono);
+    // cv::imshow("test", mono);
+//    cv::Mat stereo;
+//    stereo =
+//        cv::imread(
+//            ("./images/stereo_" + std::to_string(id) + ".jpg").c_str(),
+//            CV_LOAD_IMAGE_COLOR);
+//    std::pair<cv::Mat, cv::Mat> stereo_pair =
+//        undistort.Undistort(fisheye::Split(stereo));
+//    cv::imshow("left", stereo_pair.first);
+//    cv::imshow("right", stereo_pair.second);
+
+    long now =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+
+    slam.TrackMonocular(mono, now / 1000.0);
+    cv::Mat debug_image = slam.DrawCurrentFrame();
+    cv::imshow("debug", debug_image);
+    if (cv::waitKey(1) >= 0) {
+      break;
+    }
+  }
+  slam.Shutdown();
 }
 
 void FisheyeNode::RunFromDataset() {
@@ -27,34 +75,17 @@ void FisheyeNode::RunFromDataset() {
         cv::imread(
             ("./images/mono_" + std::to_string(id) + ".jpg").c_str(),
             CV_LOAD_IMAGE_COLOR);
+    cv::imwrite(("mono_" + std::to_string(id)).c_str(), mono);
     mono = undistort.Undistort(mono);
-
-    cv::Mat stereo;
-    stereo =
-        cv::imread(
-            ("./images/stereo_" + std::to_string(id) + ".jpg").c_str(),
-            CV_LOAD_IMAGE_COLOR);
-    std::pair<cv::Mat, cv::Mat> stereo_pair =
-        undistort.Undistort(fisheye::Split(stereo));
-    cv::imshow("left", stereo_pair.first);
-    cv::imshow("right", stereo_pair.second);
-
-#ifdef ORB_EXPERIMENT_0601
-    if (!matcher_) {
-      matcher_ = cv::DescriptorMatcher::create("BruteForce-Hamming");
-    }
-    if (!detector_) {
-      detector_ = cv::ORB::create();
-    }
-    mono_frames_.push_back(mono.clone());
-    stereo_frames_.push_back(stereo_pair);
-    ORBExperiment0601();
-    ORBExperiment0602();
-    if (mono_frames_.size() >= 3) {
-      mono_frames_.erase(mono_frames_.begin());
-    }
-    stereo_frames_.erase(stereo_frames_.begin());
-#endif
+//    cv::Mat stereo;
+//    stereo =
+//        cv::imread(
+//            ("./images/stereo_" + std::to_string(id) + ".jpg").c_str(),
+//            CV_LOAD_IMAGE_COLOR);
+//    std::pair<cv::Mat, cv::Mat> stereo_pair =
+//        undistort.Undistort(fisheye::Split(stereo));
+//    cv::imshow("left", stereo_pair.first);
+//    cv::imshow("right", stereo_pair.second);
 
     slam.TrackMonocular(mono, now / 1000.0);
     cv::Mat debug_image = slam.DrawCurrentFrame();
@@ -73,6 +104,7 @@ int main() {
   if (!node.undistort.LoadCalibResult("calib_result.txt")) {
     return -1;
   }
+  // node.RunInRealTime();
   // node.RunFromDataset();
   node.RunORBExperiment0601();
 }
@@ -128,6 +160,7 @@ void FisheyeNode::ORBExperiment0601() {
 
   using namespace std;
   using namespace cv;
+
   vector<KeyPoint> kp1, kp2, kp3;
   cv::Mat dp1, dp2, dp3;
   cv::Mat& f1 = mono_frames_[0], f2 = mono_frames_[1], f3 = mono_frames_[2];
@@ -169,6 +202,50 @@ void FisheyeNode::ORBExperiment0601() {
       {"ORB in green: " + to_string(kp3.size()),
        "ORB in blue: " + to_string(kp3in2.size()),
        "ORB in red: " + to_string(kp3in1.size())});
+  static std::vector<std::tuple<int, int, int>> stream(
+      500, std::make_tuple(0, 0, 0));
+  stream.push_back(std::make_tuple(kp3.size(), kp3in2.size(), kp3in1.size()));
+  stream.erase(stream.begin());
+
+  static QChart *chart = new QChart();
+  static QChartView *chartView = new QChartView(chart);
+  chartView->show();
+  static QLineSeries *green_series = new QLineSeries();
+  static QLineSeries *blue_series = new QLineSeries();
+  static QLineSeries *red_series = new QLineSeries();
+  static QValueAxis *axis_y = new QValueAxis;
+  axis_y->setMin(0);
+  axis_y->setMax(500);
+  axis_y->setTickCount(20);
+  if (chart->axes().empty()) {
+    chart->addAxis(axis_y, Qt::AlignLeft);
+  }
+  if (green_series->attachedAxes().empty()) {
+    green_series->attachAxis(axis_y);
+    blue_series->attachAxis(axis_y);
+    red_series->attachAxis(axis_y);
+  }
+  green_series->setColor(Qt::green);
+  blue_series->setColor(Qt::blue);
+  red_series->setColor(Qt::red);
+
+  green_series->clear();
+  blue_series->clear();
+  red_series->clear();
+  int i = 0;
+  for (auto& tuple : stream) {
+    ++i;
+    green_series->append(i, get<0>(tuple));
+    blue_series->append(i, get<1>(tuple));
+    red_series->append(i, get<2>(tuple));
+  }
+  if (chart->series().empty()) {
+    chart->addSeries(green_series);
+    chart->addSeries(blue_series);
+    chart->addSeries(red_series);
+  }
+
+
   imshow("keypoints", image);
 }
 
