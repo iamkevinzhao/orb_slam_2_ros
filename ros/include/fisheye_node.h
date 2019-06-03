@@ -35,7 +35,7 @@ class FisheyeNode {
   cv::Ptr<cv::DescriptorMatcher> matcher_;
   cv::Ptr<cv::ORB> detector_;
   const int kThres = 30;
-  const int kSteamBufSize = 500;
+  const int kSteamBufSize = 200;
 
   std::vector<cv::Mat> mono_frames_;
   std::vector<std::pair<cv::Mat, cv::Mat>> stereo_frames_;

@@ -111,6 +111,7 @@ int main() {
   node.RunORBExperiment0601();
 }
 
+///////////////////////////////////////////////////////////////////
 
 #ifdef ORB_EXPERIMENT_0601
 void FisheyeNode::RunORBExperiment0601() {
@@ -142,7 +143,7 @@ void FisheyeNode::RunORBExperiment0601() {
     }
     mono_frames_.push_back(mono.clone());
     stereo_frames_.push_back(stereo_pair);
-    ORBExperiment0601();
+    // ORBExperiment0601();
     ORBExperiment0602();
     if (mono_frames_.size() >= 3) {
       mono_frames_.erase(mono_frames_.begin());
@@ -211,6 +212,11 @@ void FisheyeNode::ORBExperiment0601() {
   stream.push_back(std::make_tuple(kp3.size(), kp3in2.size(), kp3in1.size()));
   stream.erase(stream.begin());
 
+  static ofstream os;
+  if (!os.is_open()) {
+    os.open("statistics_mono.txt");
+  }
+  os << kp3.size() << " " << kp3in2.size() << " " << kp3in1.size() << "\n";
 #ifdef QT5CHARTS_FOUND
   static QChart *chart = new QChart();
   static QChartView *chartView = new QChartView(chart);
@@ -220,7 +226,7 @@ void FisheyeNode::ORBExperiment0601() {
   static QLineSeries *red_series = new QLineSeries();
   static QValueAxis *axis_y = new QValueAxis;
   axis_y->setMin(0);
-  axis_y->setMax(500);
+  axis_y->setMax(600);
   axis_y->setLabelFormat("%d");
   // axis_y->setTickCount(20);
 //  chartView->setSize(500, 500);
@@ -342,7 +348,19 @@ void FisheyeNode::ORBExperiment0602() {
   vconcat(image, sol_roi, image);
   vconcat(image, sor_roi, image);
 
-  imshow("mono", image);
+  imshow("mono-stereo", image);
+
+  ofstream os;
+  if (!os.is_open()) {
+    os.open("statistics_stereo.txt");
+  }
+  os << mo_kp.size() << " "
+     << sol_3kp.size() << " "
+     << sol_cokp.size() << " "
+     << sol_3kp.size() << " "
+     << sor_3kp.size() << " "
+     << sor_cokp.size() << " "
+     << sor_3kp.size() << "\n";
 
   static std::vector<std::tuple<int>> stream(
       kSteamBufSize, std::make_tuple(0));
