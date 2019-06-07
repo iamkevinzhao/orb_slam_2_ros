@@ -124,6 +124,7 @@ void FisheyeNode::RunORBExperiment0601() {
             ("./images/mono_" + std::to_string(id) + ".jpg").c_str(),
             CV_LOAD_IMAGE_COLOR);
     mono = undistort.Undistort(mono);
+    cv::imshow("mono", mono);
 
     cv::Mat stereo;
     stereo =
@@ -132,8 +133,8 @@ void FisheyeNode::RunORBExperiment0601() {
             CV_LOAD_IMAGE_COLOR);
     std::pair<cv::Mat, cv::Mat> stereo_pair =
         undistort.Undistort(fisheye::Split(stereo));
-//    cv::imshow("left", stereo_pair.first);
-//    cv::imshow("right", stereo_pair.second);
+    cv::imshow("left", stereo_pair.first);
+    cv::imshow("right", stereo_pair.second);
 
     if (!matcher_) {
       matcher_ = cv::DescriptorMatcher::create("BruteForce-Hamming");
@@ -141,9 +142,10 @@ void FisheyeNode::RunORBExperiment0601() {
     if (!detector_) {
       detector_ = cv::ORB::create();
     }
+    frame_id_ = id;
     mono_frames_.push_back(mono.clone());
     stereo_frames_.push_back(stereo_pair);
-    // ORBExperiment0601();
+//    ORBExperiment0601();
     ORBExperiment0602();
     if (mono_frames_.size() >= 3) {
       mono_frames_.erase(mono_frames_.begin());
@@ -172,28 +174,34 @@ void FisheyeNode::ORBExperiment0601() {
   detector_->detectAndCompute(f3, noArray(), kp3, dp3);
   vector<DMatch> matches;
   vector<KeyPoint> kp3in2;
-  matcher_->match(dp3, dp2, matches);
-  for (DMatch& match : matches) {
-    if (match.distance < kThres) {
-      kp3in2.push_back(kp3[match.queryIdx]);
+  if (!dp3.empty() && !dp2.empty()) {
+    matcher_->match(dp3, dp2, matches);
+    for (DMatch& match : matches) {
+      if (match.distance < kThres) {
+        kp3in2.push_back(kp3[match.queryIdx]);
+      }
     }
   }
   Mat dp1in2;
-  matcher_->match(dp1, dp2, matches);
-  for (DMatch& match : matches) {
-    if (match.distance < kThres) {
-      if (dp1in2.empty()) {
-        dp1in2 = dp1.row(match.queryIdx).clone();
-      } else {
-        vconcat(dp1in2, dp1.row(match.queryIdx), dp1in2);
+  if (!dp1.empty() && !dp2.empty()) {
+    matcher_->match(dp1, dp2, matches);
+    for (DMatch& match : matches) {
+      if (match.distance < kThres) {
+        if (dp1in2.empty()) {
+          dp1in2 = dp1.row(match.queryIdx).clone();
+        } else {
+          vconcat(dp1in2, dp1.row(match.queryIdx), dp1in2);
+        }
       }
     }
   }
   vector<KeyPoint> kp3in1;
-  matcher_->match(dp3, dp1in2, matches);
-  for (DMatch& match : matches) {
-    if (match.distance < kThres) {
-      kp3in1.push_back(kp3[match.queryIdx]);
+  if (!dp3.empty() && !dp1in2.empty()) {
+    matcher_->match(dp3, dp1in2, matches);
+    for (DMatch& match : matches) {
+      if (match.distance < kThres) {
+        kp3in1.push_back(kp3[match.queryIdx]);
+      }
     }
   }
   Mat image;
@@ -204,7 +212,8 @@ void FisheyeNode::ORBExperiment0601() {
       image,
       {"ORB in green: " + to_string(kp3.size()),
        "ORB in blue: " + to_string(kp3in2.size()),
-       "ORB in red: " + to_string(kp3in1.size())});
+       "ORB in red: " + to_string(kp3in1.size()),
+       "Frame ID: " + to_string(frame_id_)});
   imshow("keypoints", image);
 
   static std::vector<std::tuple<int, int, int>> stream(
@@ -217,6 +226,7 @@ void FisheyeNode::ORBExperiment0601() {
     os.open("statistics_mono.txt");
   }
   os << kp3.size() << " " << kp3in2.size() << " " << kp3in1.size() << "\n";
+
 #ifdef QT5CHARTS_FOUND
   static QChart *chart = new QChart();
   static QChartView *chartView = new QChartView(chart);
@@ -291,28 +301,32 @@ void FisheyeNode::ORBExperiment0602() {
   vector<KeyPoint> sol_cokp, sor_cokp;
   vector<DMatch> matches;
   cv::Mat sol_codp, sor_codp;
-  matcher_->match(sol_dp, mo_dp, matches);
-  for (DMatch& match : matches) {
-    if (match.distance > kThres) {
-      continue;
-    }
-    sol_cokp.push_back(sol_kp[match.queryIdx]);
-    if (sol_codp.empty()) {
-      sol_codp = sol_dp.row(match.queryIdx).clone();
-    } else {
-      vconcat(sol_codp, sol_dp.row(match.queryIdx), sol_codp);
+  if (!sol_dp.empty() && !mo_dp.empty()) {
+    matcher_->match(sol_dp, mo_dp, matches);
+    for (DMatch& match : matches) {
+      if (match.distance > kThres) {
+        continue;
+      }
+      sol_cokp.push_back(sol_kp[match.queryIdx]);
+      if (sol_codp.empty()) {
+        sol_codp = sol_dp.row(match.queryIdx).clone();
+      } else {
+        vconcat(sol_codp, sol_dp.row(match.queryIdx), sol_codp);
+      }
     }
   }
-  matcher_->match(sor_dp, mo_dp, matches);
-  for (DMatch& match : matches) {
-    if (match.distance > kThres) {
-      continue;
-    }
-    sor_cokp.push_back(sor_kp[match.queryIdx]);
-    if (sor_codp.empty()) {
-      sor_codp = sor_dp.row(match.queryIdx).clone();
-    } else {
-      vconcat(sor_codp, sor_dp.row(match.queryIdx), sor_codp);
+  if (!sor_dp.empty() && !mo_dp.empty()) {
+    matcher_->match(sor_dp, mo_dp, matches);
+    for (DMatch& match : matches) {
+      if (match.distance > kThres) {
+        continue;
+      }
+      sor_cokp.push_back(sor_kp[match.queryIdx]);
+      if (sor_codp.empty()) {
+        sor_codp = sor_dp.row(match.queryIdx).clone();
+      } else {
+        vconcat(sor_codp, sor_dp.row(match.queryIdx), sor_codp);
+      }
     }
   }
   std::vector<KeyPoint> sol_3kp, sor_3kp;
@@ -333,7 +347,10 @@ void FisheyeNode::ORBExperiment0602() {
   drawKeypoints(sor_roi, sor_cokp, sor_roi, Scalar{255, 0, 0});
   drawKeypoints(sol_roi, sol_3kp, sol_roi, Scalar{0, 0, 255});
   drawKeypoints(sor_roi, sor_3kp, sor_roi, Scalar{0, 0, 255});
-  PutText(mo_roi, {"ORB in green: " + to_string(mo_kp.size())});
+  PutText(
+      mo_roi,
+      {"ORB in green: " + to_string(mo_kp.size()),
+       "Frame ID: " + to_string(frame_id_)});
   PutText(
       sol_roi,
       {"ORB in green: " + to_string(sol_kp.size()),
@@ -350,7 +367,7 @@ void FisheyeNode::ORBExperiment0602() {
 
   imshow("mono-stereo", image);
 
-  ofstream os;
+  static ofstream os;
   if (!os.is_open()) {
     os.open("statistics_stereo.txt");
   }
