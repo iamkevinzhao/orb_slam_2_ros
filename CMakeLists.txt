@@ -43,6 +43,8 @@ add_compile_options(-fPIC)
 
 find_package(Qt5Charts)
 
+add_definitions(-DENABLE_ARC_PROJECT)
+
 set (DYNAMIC_RECONFIGURE_PATH ros/config/dynamic_reconfigure.cfg)
 execute_process(COMMAND chmod a+x ${DYNAMIC_RECONFIGURE_PATH}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
@@ -131,6 +133,8 @@ target_link_libraries(${PROJECT_NAME}_fisheye
 add_executable (${PROJECT_NAME}_mono
 ros/src/MonoNode.cc
 ros/src/Node.cc
+ros/src/tcpclient.cpp
+ros/src/tcpclient.h
 )
 add_dependencies (${PROJECT_NAME}_mono ${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
 
@@ -141,8 +145,10 @@ ${LIBS_ROS}
 add_executable (${PROJECT_NAME}_stereo
 ros/src/StereoNode.cc
 ros/src/Node.cc
+ros/src/tcpclient.cpp
+ros/src/tcpclient.h
 )
-add_dependencies (${PROJECT_NAME}_stereo ${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
+add_dependencies(${PROJECT_NAME}_stereo ${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
 
 target_link_libraries(${PROJECT_NAME}_stereo
 ${LIBS_ROS}
@@ -151,6 +157,8 @@ ${LIBS_ROS}
 add_executable (${PROJECT_NAME}_rgbd
 ros/src/RGBDNode.cc
 ros/src/Node.cc
+ros/src/tcpclient.cpp
+ros/src/tcpclient.h
 )
 add_dependencies (${PROJECT_NAME}_rgbd ${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
 

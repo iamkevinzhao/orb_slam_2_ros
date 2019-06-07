@@ -46,7 +46,6 @@ class RGBDNode : public Node
     RGBDNode (ORB_SLAM2::System* pSLAM, ros::NodeHandle &node_handle, image_transport::ImageTransport &image_transport);
     ~RGBDNode ();
     void ImageCallback (const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
-
   private:
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
     message_filters::Subscriber<sensor_msgs::Image> *rgb_subscriber_;

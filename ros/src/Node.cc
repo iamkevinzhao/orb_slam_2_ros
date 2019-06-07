@@ -2,6 +2,10 @@
 
 #include <iostream>
 
+#ifdef ENABLE_ARC_PROJECT
+#include "tcpclient.h"
+#endif
+
 Node::Node (ORB_SLAM2::System* pSLAM, ros::NodeHandle &node_handle, image_transport::ImageTransport &image_transport) {
   name_of_node_ = ros::this_node::getName();
   orb_slam_ = pSLAM;
@@ -178,4 +182,35 @@ void Node::ParamsChangedCallback(orb_slam2_ros::dynamic_reconfigureConfig &confi
   }
 
   orb_slam_->SetMinimumKeyFrames (config.min_num_kf_in_map);
+}
+
+void Node::UpdateForARC() {
+#ifdef ENABLE_ARC_PROJECT
+  static TCPClient* tcp = nullptr;
+  if (!tcp) {
+    tcp = new TCPClient();
+    tcp->setup("127.0.0.1", 2368);
+  }
+  cv::Mat pose = orb_slam_->GetCurrentPosition();
+  if (pose.empty()) {
+    return;
+  }
+
+  tf::Transform trans = TransformFromMat(pose);
+  double r, p, yaw;
+  tf::Matrix3x3(trans.getRotation()).getRPY(r, p, yaw);
+  // std::cout << "angle" << yaw * 180.0 / M_PI << std::endl;
+  float p_y = trans.getOrigin().x();
+  float p_x = trans.getOrigin().y();
+  float o_x = sin(-yaw);
+  float o_y = cos(-yaw);
+  tcp->Send(
+      "["
+      "ts:13413241234|"
+      "name:Robot|"
+      "pos:" + std::to_string(p_x) + "," + std::to_string(p_y) + "|"
+      "ori:" + std::to_string(o_x) + "," + std::to_string(o_y) + "|"
+      "dist:1.0"
+      "]");
+#endif
 }
