@@ -13,23 +13,32 @@
 #include <netdb.h>
 #include <netdb.h>
 #include <vector>
+#include <thread>
+#include <mutex>
 
-using namespace std;
+//using namespace std;
 
 class TCPClient
 {
   private:
+    void send_thread();
     int sock;
     std::string address;
     int port;
     struct sockaddr_in server;
+    std::thread thread_;
+    bool exit_ = false;
 
+    std::mutex buf_mutex_;
+    std::string buf_;
   public:
     TCPClient();
-    bool setup(string address, int port);
-    bool Send(string data);
-    string receive(int size = 4096);
-    string read();
+    ~TCPClient();
+    bool setup(std::string address, int port);
+    bool Send(const std::string& data);
+    bool block_send(std::string data);
+    std::string receive(int size = 4096);
+    std::string read();
     void exit();
 };
 

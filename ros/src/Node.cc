@@ -4,6 +4,7 @@
 
 #ifdef ENABLE_ARC_PROJECT
 #include "tcpclient.h"
+#include <std_msgs/String.h>
 #endif
 
 Node::Node (ORB_SLAM2::System* pSLAM, ros::NodeHandle &node_handle, image_transport::ImageTransport &image_transport) {
@@ -184,13 +185,28 @@ void Node::ParamsChangedCallback(orb_slam2_ros::dynamic_reconfigureConfig &confi
   orb_slam_->SetMinimumKeyFrames (config.min_num_kf_in_map);
 }
 
-void Node::UpdateForARC() {
+void Node::UpdateForARC(const cv::Mat& image) {
 #ifdef ENABLE_ARC_PROJECT
-  static TCPClient* tcp = nullptr;
-  if (!tcp) {
-    tcp = new TCPClient();
-    tcp->setup("127.0.0.1", 2368);
+  using namespace cv;
+  using namespace std;
+
+  if (image.empty()) {
+    return;
   }
+
+  static TCPClient* outbound = nullptr;
+  if (!outbound) {
+    outbound = new TCPClient();
+    outbound->setup("127.0.0.1", 2369);
+  }
+
+  ros::Publisher* pub = nullptr;
+  if (!pub) {
+    pub = new ros::Publisher;
+    *pub = node_handle_.advertise<std_msgs::String>("/arc_pose", 1);
+  }
+
+
   cv::Mat pose = orb_slam_->GetCurrentPosition();
   if (pose.empty()) {
     return;
@@ -201,16 +217,20 @@ void Node::UpdateForARC() {
   tf::Matrix3x3(trans.getRotation()).getRPY(r, p, yaw);
   // std::cout << "angle" << yaw * 180.0 / M_PI << std::endl;
   float p_y = trans.getOrigin().x();
-  float p_x = trans.getOrigin().y();
+  float p_x = -trans.getOrigin().y();
   float o_x = sin(-yaw);
   float o_y = cos(-yaw);
-  tcp->Send(
+  std::string msg =
       "["
       "ts:13413241234|"
-      "name:Robot|"
+      "name:robot|"
       "pos:" + std::to_string(p_x) + "," + std::to_string(p_y) + "|"
       "ori:" + std::to_string(o_x) + "," + std::to_string(o_y) + "|"
-      "dist:1.0"
-      "]");
+//      "pos:" + std::to_string(4.5) + "," + std::to_string(3) + "|"
+//      "ori:" + std::to_string(0) + "," + std::to_string(1) + "|"
+      "dist:0"
+      "]";
+    outbound->block_send(msg);
+    pub->publish(msg);
 #endif
 }

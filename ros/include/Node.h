@@ -55,7 +55,7 @@ class Node
 
     ros::Time current_frame_time_;
 
-    void UpdateForARC();
+    void UpdateForARC(const cv::Mat& image);
   private:
     void PublishMapPoints (std::vector<ORB_SLAM2::MapPoint*> map_points);
     void PublishPositionAsTransform (cv::Mat position);

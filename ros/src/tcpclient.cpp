@@ -1,10 +1,32 @@
 #include "tcpclient.h"
 
+using namespace std;
+
 TCPClient::TCPClient()
 {
   sock = -1;
   port = 0;
   address = "";
+  // thread_ = thread(&TCPClient::send_thread, this);
+}
+
+TCPClient::~TCPClient() {
+  exit_ = true;
+  // thread_.detach();
+}
+
+void TCPClient::send_thread() {
+  while (!exit_) {
+    this_thread::sleep_for(chrono::milliseconds(10));
+    buf_mutex_.lock();
+    string buf = buf_;
+    buf_.clear();
+    buf_mutex_.unlock();
+    if (buf.empty()) {
+      return;
+    }
+    block_send(buf);
+  }
 }
 
 bool TCPClient::setup(string address , int port)
@@ -48,13 +70,19 @@ bool TCPClient::setup(string address , int port)
     return true;
 }
 
-bool TCPClient::Send(string data)
+bool TCPClient::Send(const string& data) {
+  buf_mutex_.lock();
+  buf_ = data;
+  buf_mutex_.unlock();
+}
+
+bool TCPClient::block_send(string data)
 {
   if(sock != -1)
   {
     if( send(sock , data.c_str() , strlen( data.c_str() ) , 0) < 0)
     {
-      cout << "Send failed : " << data << endl;
+      // cout << "Send failed : " << data << endl;
       return false;
     }
   }
