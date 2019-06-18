@@ -198,6 +198,14 @@ void Node::UpdateForARC(const cv::Mat& image) {
   if (!outbound) {
     outbound = new TCPClient();
     outbound->setup("127.0.0.1", 2369);
+    outbound->block_send(
+        "["
+        "ts:13413241234|"
+        "name:calibration|"
+        "pos:" + std::to_string(4.95) + "," + std::to_string(2.7) + "|"
+        "ori:" + std::to_string(0) + "," + std::to_string(1) + "|"
+        "dist:0"
+        "]");
   }
 
   ros::Publisher* pub = nullptr;
@@ -230,7 +238,7 @@ void Node::UpdateForARC(const cv::Mat& image) {
 //      "ori:" + std::to_string(0) + "," + std::to_string(1) + "|"
       "dist:0"
       "]";
-    outbound->block_send(msg);
-    pub->publish(msg);
+  outbound->block_send(msg);
+  pub->publish(msg);
 #endif
 }
